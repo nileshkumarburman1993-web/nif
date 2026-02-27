@@ -3,24 +3,24 @@ Angel One API Integration
 Handles authentication, order placement, and position management
 """
 
-from smartapi import SmartConnect
+from SmartApi import SmartConnect
 import pyotp
-from config import *
+from config import Config
 
 class AngelAPI:
     """Wrapper class for Angel One SmartAPI"""
     
     def __init__(self):
         """Initialize Angel One API client with config credentials"""
-        self.api = SmartConnect(api_key=ANGEL_API_KEY)
+        self.api = SmartConnect(api_key=Config.ANGEL_API_KEY)
         self.session = None
         self.logged_in = False
         
     def login(self):
         """Angel One login with TOTP"""
         try:
-            totp = pyotp.TOTP(ANGEL_TOTP_SECRET).now()
-            data = self.api.generateSession(ANGEL_CLIENT_ID, ANGEL_PASSWORD, totp)
+            totp = pyotp.TOTP(Config.ANGEL_TOTP_SECRET).now()
+            data = self.api.generateSession(Config.ANGEL_CLIENT_ID, Config.ANGEL_PASSWORD, totp)
             self.session = data['data']['jwtToken']
             self.logged_in = True
             print("✅ Angel One Login Success")
@@ -136,7 +136,7 @@ class AngelAPI:
         """Logout from Angel One API"""
         try:
             if self.api and self.logged_in:
-                self.api.terminateSession(ANGEL_CLIENT_ID)
+                self.api.terminateSession(Config.ANGEL_CLIENT_ID)
                 self.logged_in = False
                 print("✅ Logged out successfully")
                 return True

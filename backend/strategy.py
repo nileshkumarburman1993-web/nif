@@ -10,7 +10,7 @@ import sqlite3
 from datetime import datetime
 from option_chain import OptionChain
 from angel_api import AngelAPI
-from config import *
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +39,8 @@ class TradingStrategy:
         self._init_database()
         
         # Strategy parameters from config
-        self.profit_target = PROFIT_TARGET  # 70% profit target
-        self.stop_loss = STOP_LOSS  # 30% stop loss
+        self.profit_target = Config.PROFIT_TARGET  # 70% profit target
+        self.stop_loss = Config.STOP_LOSS  # 30% stop loss
         
     def _init_database(self):
         """Initialize SQLite database for trade history"""
@@ -169,7 +169,7 @@ class TradingStrategy:
         """Generate BUY/SELL/WAIT signal"""
         
         # Super Bullish
-        if pcr <= PCR_BULLISH:
+        if pcr <= Config.PCR_BULLISH:
             if current_price < max_pain:
                 return {
                     'action': 'BUY',
@@ -181,7 +181,7 @@ class TradingStrategy:
                 }
         
         # Super Bearish
-        elif pcr >= PCR_BEARISH:
+        elif pcr >= Config.PCR_BEARISH:
             if current_price > max_pain:
                 return {
                     'action': 'BUY',
@@ -195,7 +195,7 @@ class TradingStrategy:
         # Range bound
         else:
             distance = abs(current_price - max_pain)
-            if distance > MAX_PAIN_THRESHOLD:
+            if distance > Config.MAX_PAIN_THRESHOLD:
                 return {
                     'action': 'BUY',
                     'type': 'CALL' if current_price < max_pain else 'PUT',
@@ -215,9 +215,9 @@ class TradingStrategy:
                 return "No trade setup"
             
             # Calculate lot size based on risk
-            risk_amount = CAPITAL_PER_TRADE * (RISK_PERCENT / 100)
+            risk_amount = Config.CAPITAL_PER_TRADE * (Config.RISK_PERCENT / 100)
             sl_points = abs(signal['entry'] - signal['sl'])
-            qty = int(risk_amount / sl_points) if sl_points > 0 else DEFAULT_QUANTITY
+            qty = int(risk_amount / sl_points) if sl_points > 0 else Config.DEFAULT_QUANTITY
             
             symbol = f"BANKNIFTY{signal['entry']}{signal['type']}"
             

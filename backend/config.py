@@ -17,10 +17,10 @@ class Config:
     DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
     
     # Angel One API Credentials
-    ANGEL_API_KEY = os.getenv('ANGEL_API_KEY', 'your_api_key_here')
-    ANGEL_CLIENT_ID = os.getenv('ANGEL_CLIENT_ID', 'your_client_id')
-    ANGEL_PASSWORD = os.getenv('ANGEL_PASSWORD', 'your_password')
-    ANGEL_TOTP_SECRET = os.getenv('ANGEL_TOTP_SECRET', 'your_totp_secret')  # For 2FA
+    ANGEL_API_KEY = os.getenv('ANGEL_API_KEY', 'dummy_key')
+    ANGEL_CLIENT_ID = os.getenv('ANGEL_CLIENT_ID', 'dummy_client')
+    ANGEL_PASSWORD = os.getenv('ANGEL_PASSWORD', 'dummy_password')
+    ANGEL_TOTP_SECRET = os.getenv('ANGEL_TOTP_SECRET', 'JBSWY3DPEHPK3PXP')  # Dummy TOTP
     
     # Database settings
     DATABASE_PATH = os.getenv('DATABASE_PATH', '../database/trades.db')
