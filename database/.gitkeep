@@ -1,0 +1,2 @@
+# This file ensures the database directory is tracked by git
+# The trades.db file will be created automatically by the application
