@@ -264,7 +264,10 @@ def get_trade_history():
 
 if __name__ == '__main__':
     # Ensure database directory exists
-    os.makedirs('../database', exist_ok=True)
+    try:
+        os.makedirs('../database', exist_ok=True)
+    except:
+        pass
     
     # Start background data updater thread
     logger.info("Starting background market data updater...")
@@ -272,8 +275,9 @@ if __name__ == '__main__':
     thread.start()
     
     # Get port from environment variable (for cloud deployment)
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 10000))
     
     # Run the app
     logger.info(f"Starting Flask server on http://0.0.0.0:{port}")
-    app.run(debug=False, host='0.0.0.0', port=port)
+    print(f"Server starting on port {port}")
+    app.run(debug=False, host='0.0.0.0', port=port, threaded=True)
