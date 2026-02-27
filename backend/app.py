@@ -271,6 +271,9 @@ if __name__ == '__main__':
     thread = threading.Thread(target=update_market_data, daemon=True)
     thread.start()
     
+    # Get port from environment variable (for cloud deployment)
+    port = int(os.environ.get('PORT', 5000))
+    
     # Run the app
-    logger.info("Starting Flask server on http://0.0.0.0:5000")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    logger.info(f"Starting Flask server on http://0.0.0.0:{port}")
+    app.run(debug=False, host='0.0.0.0', port=port)
