@@ -162,12 +162,30 @@
                     const cp = signal.candle_prediction;
                     const emoji = cp.direction === 'BULLISH' ? '📈' : cp.direction === 'BEARISH' ? '📉' : '➡️';
                     const color = cp.direction === 'BULLISH' ? '#38ef7d' : cp.direction === 'BEARISH' ? '#f45c43' : '#ffd700';
+                    
+                    // Pattern emoji mapping
+                    const patternEmojis = {
+                        'Hammer': '🔨',
+                        'Shooting Star': '⭐',
+                        'Doji': '✖️',
+                        'Bullish Engulfing': '🟢',
+                        'Bearish Engulfing': '🔴',
+                        'Bullish Marubozu': '💚',
+                        'Bearish Marubozu': '❤️',
+                        'Spinning Top': '🌀',
+                        'Inverted Hammer': '🔨',
+                        'Hanging Man': '🎣'
+                    };
+                    
+                    const patternEmoji = patternEmojis[cp.pattern] || '📊';
+                    
                     candleInfo = `
-                        <div style="background: rgba(255,255,255,0.2); padding: 10px; border-radius: 10px; margin-top: 10px;">
+                        <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 10px; margin-top: 10px;">
                             <p><strong>🕯️ Next 15-Min Candle Prediction:</strong></p>
                             <p style="font-size: 24px; margin: 5px 0;">${emoji} <span style="color: ${color}">${cp.direction}</span></p>
                             <p><strong>Confidence:</strong> ${cp.confidence}%</p>
-                            <p style="font-size: 12px; opacity: 0.8;">${cp.reason || ''}</p>
+                            ${cp.pattern ? `<p style="font-size: 16px; margin-top: 8px;">${patternEmoji} <strong>Pattern:</strong> ${cp.pattern}</p>` : ''}
+                            <p style="font-size: 12px; opacity: 0.8; margin-top: 5px;">${cp.reason || ''}</p>
                         </div>
                     `;
                 }

@@ -3,6 +3,98 @@
 Predicts next candle direction using technical analysis
 """
 
+def identify_candle_pattern(open_price, high, low, close, prev_open=None, prev_close=None):
+    """
+    Identify candlestick pattern
+    Returns: (pattern_name, is_bullish, strength)
+    """
+    body = abs(close - open_price)
+    total_range = high - low
+    upper_shadow = high - max(open_price, close)
+    lower_shadow = min(open_price, close) - low
+    
+    # Avoid division by zero
+    if total_range == 0:
+        return ("Doji", None, 0)
+    
+    body_to_range = body / total_range if total_range > 0 else 0
+    
+    # Pattern detection
+    
+    # 1. DOJI - Very small body
+    if body < total_range * 0.1:
+        return ("Doji", None, 2)  # Neutral, medium strength
+    
+    # 2. HAMMER - Long lower shadow, small body at top
+    if (lower_shadow > body * 2 and 
+        upper_shadow < body * 0.3 and
+        body_to_range < 0.3):
+        return ("Hammer", True, 3)  # Bullish, strong
+    
+    # 3. INVERTED HAMMER - Long upper shadow, small body at bottom
+    if (upper_shadow > body * 2 and 
+        lower_shadow < body * 0.3 and
+        body_to_range < 0.3):
+        return ("Inverted Hammer", True, 2)  # Bullish, medium
+    
+    # 4. SHOOTING STAR - Long upper shadow, small body at bottom
+    if (upper_shadow > body * 2 and 
+        lower_shadow < body * 0.5 and
+        close < open_price):
+        return ("Shooting Star", False, 3)  # Bearish, strong
+    
+    # 5. HANGING MAN - Long lower shadow, small body at top, bearish context
+    if (lower_shadow > body * 2 and 
+        upper_shadow < body * 0.3 and
+        close < open_price):
+        return ("Hanging Man", False, 2)  # Bearish, medium
+    
+    # 6. MARUBOZU - Almost no shadows, strong body
+    if body_to_range > 0.9:
+        if close > open_price:
+            return ("Bullish Marubozu", True, 4)  # Very strong bullish
+        else:
+            return ("Bearish Marubozu", False, 4)  # Very strong bearish
+    
+    # 7. SPINNING TOP - Small body, long shadows both sides
+    if (body_to_range < 0.3 and 
+        upper_shadow > body and 
+        lower_shadow > body):
+        return ("Spinning Top", None, 1)  # Neutral, weak
+    
+    # 8. BULLISH/BEARISH ENGULFING (needs previous candle)
+    if prev_open is not None and prev_close is not None:
+        prev_body = abs(prev_close - prev_open)
+        
+        # Bullish Engulfing
+        if (prev_close < prev_open and  # Previous was bearish
+            close > open_price and  # Current is bullish
+            open_price < prev_close and  # Opens below prev close
+            close > prev_open):  # Closes above prev open
+            return ("Bullish Engulfing", True, 4)
+        
+        # Bearish Engulfing
+        if (prev_close > prev_open and  # Previous was bullish
+            close < open_price and  # Current is bearish
+            open_price > prev_close and  # Opens above prev close
+            close < prev_open):  # Closes below prev open
+            return ("Bearish Engulfing", False, 4)
+    
+    # 9. Regular bullish/bearish candles
+    if close > open_price:
+        if body_to_range > 0.7:
+            return ("Strong Bullish Candle", True, 3)
+        else:
+            return ("Bullish Candle", True, 2)
+    else:
+        if body_to_range > 0.7:
+            return ("Strong Bearish Candle", False, 3)
+        else:
+            return ("Bearish Candle", False, 2)
+    
+    return ("Unknown", None, 0)
+
+
 def predict_next_candle(candles, pcr, max_pain, current_price):
     """
     Predict next 15-min candle direction
@@ -37,15 +129,26 @@ def predict_next_candle(candles, pcr, max_pain, current_price):
         last_upper_shadow = last_high - max(last_open, last_close)
         last_lower_shadow = min(last_open, last_close) - last_low
         
+        # Identify current candle pattern
+        current_pattern, is_bullish, pattern_strength = identify_candle_pattern(
+            last_open, last_high, last_low, last_close, 
+            prev_open, prev_close
+        )
+        
         # Bullish/Bearish signals
         bullish_signals = 0
         bearish_signals = 0
         
         # 1. Candle pattern analysis
-        if last_close > last_open:  # Green candle
-            bullish_signals += 1
-        else:
-            bearish_signals += 1
+        if is_bullish == True:
+            bullish_signals += pattern_strength
+        elif is_bullish == False:
+            bearish_signals += pattern_strength
+        else:  # Neutral pattern
+            if last_close > last_open:
+                bullish_signals += 1
+            else:
+                bearish_signals += 1
         
         # 2. Trend analysis (3 candles)
         if prev_prev:
@@ -118,7 +221,9 @@ def predict_next_candle(candles, pcr, max_pain, current_price):
             'last_close': last_close,
             'bullish_signals': bullish_signals,
             'bearish_signals': bearish_signals,
-            'reason': f"{bullish_signals} bullish vs {bearish_signals} bearish signals"
+            'pattern': current_pattern,
+            'pattern_strength': pattern_strength,
+            'reason': f"{current_pattern} pattern detected - {bullish_signals} bullish vs {bearish_signals} bearish signals"
         }
         
     except Exception as e:
