@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: nif-trading-automation
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && gunicorn --config gunicorn_config.py app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PORT
+        sync: false

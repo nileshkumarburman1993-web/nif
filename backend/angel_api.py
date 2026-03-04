@@ -15,6 +15,8 @@ class AngelAPI:
         self.api = SmartConnect(api_key=Config.ANGEL_API_KEY)
         self.session = None
         self.logged_in = False
+        self._candle_cache = {}  # Cache for candle data
+        self._cache_duration = 60  # Cache for 60 seconds
         
     def login(self):
         """Angel One login with TOTP"""
@@ -45,7 +47,7 @@ class AngelAPI:
     
     def get_candle_data(self, symbol="NIFTY", interval="FIFTEEN_MINUTE", count=10):
         """
-        Get historical candle data for prediction
+        Get historical candle data for prediction (with caching to avoid rate limits)
         Intervals: ONE_MINUTE, THREE_MINUTE, FIVE_MINUTE, FIFTEEN_MINUTE, ONE_HOUR, ONE_DAY
         """
         try:
@@ -55,6 +57,16 @@ class AngelAPI:
             
             from datetime import datetime, timedelta
             import time
+            
+            # Check cache first
+            cache_key = f"{symbol}_{interval}"
+            current_time = time.time()
+            
+            if cache_key in self._candle_cache:
+                cached_data, cache_time = self._candle_cache[cache_key]
+                if current_time - cache_time < self._cache_duration:
+                    print(f"📦 Using cached candle data for {symbol} ({int(self._cache_duration - (current_time - cache_time))}s old)")
+                    return cached_data
             
             # Get symbol token
             if symbol == "NIFTY":
@@ -85,8 +97,11 @@ class AngelAPI:
             if candle_data and candle_data.get('status'):
                 candles = candle_data.get('data', [])
                 if candles:
-                    print(f"✅ Got {len(candles)} candles")
-                    return candles[-count:]  # Return last N candles
+                    result = candles[-count:]  # Return last N candles
+                    # Cache the result
+                    self._candle_cache[cache_key] = (result, current_time)
+                    print(f"✅ Got {len(candles)} candles (cached for {self._cache_duration}s)")
+                    return result
                 else:
                     print("⚠️ No candle data available")
                     return None
@@ -96,6 +111,10 @@ class AngelAPI:
                 
         except Exception as e:
             print(f"❌ Error fetching candles: {e}")
+            # Return cached data if available, even if expired
+            if cache_key in self._candle_cache:
+                print("⚠️ Using expired cache due to API error")
+                return self._candle_cache[cache_key][0]
             return None
     
     def get_profile(self):
