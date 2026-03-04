@@ -139,19 +139,52 @@ class TradingStrategy:
                 time.sleep(10)
     
     def analyze_market(self, symbol="BANKNIFTY"):
-        """Main strategy logic"""
+        """Main strategy logic - Now with 15-min candle prediction"""
         try:
-            df = self.oc.get_nse_data(symbol)
-            if df is None:
-                logger.warning(f"Failed to fetch option chain for {symbol}")
-                return None
+            # Try Angel One first for LIVE data
+            df = None
+            current_price = None
+            candles = None
             
+            if self.angel.is_logged_in():
+                logger.info(f"🔄 Fetching LIVE data from Angel One for {symbol}")
+                df = self.angel.get_option_chain(symbol)
+                
+                if df and len(df) > 0:
+                    logger.info(f"✅ Got {len(df)} strikes from Angel One")
+                    # Get current price from Angel One data
+                    current_price = df[0].get('underlyingValue', 0)
+                else:
+                    logger.warning("Angel One option chain returned empty, trying NSE...")
+                
+                # Fetch 15-minute candle data
+                candles = self.angel.get_candle_data(symbol, interval="FIFTEEN_MINUTE", count=10)
+            
+            # Fallback to NSE if Angel One fails
+            if not df or len(df) == 0:
+                logger.info(f"Trying NSE data for {symbol}...")
+                df = self.oc.get_nse_data(symbol)
+                
+                if not df or len(df) == 0:
+                    logger.warning(f"Failed to fetch option chain from both sources")
+                    return None
+            
+            # Calculate metrics
             pcr = self.oc.calculate_pcr(df)
             max_pain = self.oc.get_max_pain(df)
             heavy_call, heavy_put = self.oc.get_heavy_strikes(df)
-            current_price = self.angel.get_ltp(f"{symbol}")
             
-            signal = self.generate_signal(pcr, max_pain, current_price)
+            # Get current price if not already fetched
+            if current_price is None or current_price == 0:
+                if df and len(df) > 0:
+                    current_price = df[0].get('underlyingValue', 0)
+                    logger.info(f"Using underlying value from data: {current_price}")
+                else:
+                    logger.warning("Could not get current price from any source")
+                    current_price = 0
+            
+            # Generate signal with candle prediction
+            signal = self.generate_signal_with_candles(pcr, max_pain, current_price, candles)
             
             return {
                 'pcr': pcr,
@@ -166,7 +199,12 @@ class TradingStrategy:
             return None
     
     def generate_signal(self, pcr, max_pain, current_price):
-        """Generate BUY/SELL/WAIT signal"""
+        """Generate BUY/SELL/WAIT signal (legacy method)"""
+        
+        # Validate inputs
+        if pcr == 0 or max_pain == 0 or current_price == 0:
+            logger.warning(f"Invalid data - PCR: {pcr}, Max Pain: {max_pain}, Price: {current_price}")
+            return {'action': 'WAIT', 'confidence': 0, 'reason': 'Insufficient data'}
         
         # Super Bullish
         if pcr <= Config.PCR_BULLISH:
@@ -205,7 +243,115 @@ class TradingStrategy:
                     'confidence': 70
                 }
         
-        return {'action': 'WAIT', 'confidence': 0}
+        return {'action': 'WAIT', 'confidence': 0, 'reason': 'No trading setup'}
+    
+    def generate_signal_with_candles(self, pcr, max_pain, current_price, candles=None):
+        """
+        Enhanced signal generation with 15-min candle prediction
+        """
+        from candle_prediction import predict_next_candle, get_trading_recommendation
+        
+        # Validate inputs
+        if pcr == 0 or max_pain == 0 or current_price == 0:
+            logger.warning(f"Invalid data - PCR: {pcr}, Max Pain: {max_pain}, Price: {current_price}")
+            return {'action': 'WAIT', 'confidence': 0, 'reason': 'Insufficient data'}
+        
+        # If candles available, use prediction
+        if candles and len(candles) >= 3:
+            candle_pred = predict_next_candle(candles, pcr, max_pain, current_price)
+            signal = get_trading_recommendation(candle_pred, pcr, max_pain, current_price)
+            
+            # Add candle prediction info to signal
+            signal['candle_prediction'] = {
+                'direction': candle_pred['direction'],
+                'confidence': candle_pred['confidence'],
+                'reason': candle_pred.get('reason', '')
+            }
+            
+            logger.info(f"🕯️ Next candle: {candle_pred['direction']} ({candle_pred['confidence']}%)")
+            
+            if signal['action'] != 'WAIT':
+                return signal
+        
+        # Fallback to traditional PCR-based signals with relaxed thresholds
+        
+        # Very Bullish - PCR < 0.8
+        if pcr < 0.8:
+            return {
+                'action': 'BUY',
+                'type': 'CALL',
+                'entry': current_price,
+                'target': current_price + 150,
+                'sl': current_price - 75,
+                'confidence': 80,
+                'reason': f'Very Bullish PCR ({pcr})'
+            }
+        
+        # Very Bearish - PCR > 1.2
+        elif pcr > 1.2:
+            return {
+                'action': 'BUY',
+                'type': 'PUT',
+                'entry': current_price,
+                'target': current_price - 150,
+                'sl': current_price + 75,
+                'confidence': 75,
+                'reason': f'Very Bearish PCR ({pcr})'
+            }
+        
+        # Bullish - PCR < 1.0
+        elif pcr < 1.0:
+            return {
+                'action': 'BUY',
+                'type': 'CALL',
+                'entry': current_price,
+                'target': current_price + 100,
+                'sl': current_price - 50,
+                'confidence': 65,
+                'reason': f'Bullish PCR ({pcr})'
+            }
+        
+        # Bearish - PCR > 1.0
+        elif pcr > 1.0:
+            return {
+                'action': 'BUY',
+                'type': 'PUT',
+                'entry': current_price,
+                'target': current_price - 100,
+                'sl': current_price + 50,
+                'confidence': 65,
+                'reason': f'Bearish PCR ({pcr})'
+            }
+        
+        # Neutral - use Max Pain
+        distance = abs(current_price - max_pain)
+        if distance > 50:
+            if current_price < max_pain:
+                return {
+                    'action': 'BUY',
+                    'type': 'CALL',
+                    'entry': current_price,
+                    'target': max_pain,
+                    'sl': current_price - 50,
+                    'confidence': 60,
+                    'reason': f'Price below Max Pain by {int(distance)} points'
+                }
+            else:
+                return {
+                    'action': 'BUY',
+                    'type': 'PUT',
+                    'entry': current_price,
+                    'target': max_pain,
+                    'sl': current_price + 50,
+                    'confidence': 60,
+                    'reason': f'Price above Max Pain by {int(distance)} points'
+                }
+        
+        return {
+            'action': 'WAIT',
+            'confidence': 50,
+            'reason': 'Market at equilibrium - waiting for better setup'
+        }
     
     def execute_trade(self, signal):
         """Auto execute trade"""

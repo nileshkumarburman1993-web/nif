@@ -37,7 +37,7 @@ def update_market_data():
     while True:
         try:
             if trading_active:
-                market_data = strategy.analyze_market("BANKNIFTY")
+                market_data = strategy.analyze_market("NIFTY")
                 if market_data:
                     logger.info(f"📊 Updated - PCR: {market_data.get('pcr')}, "
                               f"Max Pain: {market_data.get('max_pain')}, "
@@ -111,7 +111,7 @@ def start_trading():
     
     try:
         data = request.json if request.json else {}
-        symbol = data.get('symbol', 'BANKNIFTY')
+        symbol = data.get('symbol', 'NIFTY')
         
         trading_active = True
         

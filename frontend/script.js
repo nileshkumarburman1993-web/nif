@@ -2,8 +2,8 @@
 let isLoggedIn = false;
 let isTradingActive = false;
 
-// API Base URL
-const API_BASE = 'http://localhost:5000';
+// API Base URL - use relative URLs for dynamic port support
+const API_BASE = '';
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {

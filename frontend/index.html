@@ -70,16 +70,8 @@
 </head>
 <body>
     <div class="container">
-        <!-- Login Section -->
-        <div id="login-section" class="login-section">
-            <h1>🔐 Angel One Login</h1>
-            <p>Credentials are loaded from backend configuration</p>
-            <p>✅ API Key | ✅ Client ID | ✅ TOTP Secret</p>
-            <button id="login-btn" onclick="login()">Login to Angel One</button>
-        </div>
-
         <!-- Main Dashboard -->
-        <div class="dashboard hidden" id="dashboard">
+        <div class="dashboard" id="dashboard">
             <h1 class="text-center mb-4">🚀 70% Accuracy Auto Trading System</h1>
             
             <div class="row" id="metrics">
@@ -131,31 +123,22 @@
     </div>
 
     <script>
-        async function login() {
+        // Auto-start on page load
+        window.addEventListener('DOMContentLoaded', async function() {
+            // Start trading automatically
             try {
-                const response = await fetch('/api/login', {method: 'POST'});
-                const result = await response.json();
+                await fetch('/api/start-trading', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({symbol: 'NIFTY'})
+                });
                 
-                if (result.success) {
-                    document.getElementById('login-section').classList.add('hidden');
-                    document.getElementById('dashboard').classList.remove('hidden');
-                    
-                    // Start trading automatically
-                    await fetch('/api/start-trading', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({symbol: 'BANKNIFTY'})
-                    });
-                    
-                    updateData();
-                    setInterval(updateData, 60000);
-                } else {
-                    alert('Login failed: ' + result.message);
-                }
+                updateData();
+                setInterval(updateData, 60000);
             } catch (error) {
-                alert('Login error: ' + error);
+                console.error('Auto-start error:', error);
             }
-        }
+        });
 
         async function updateData() {
             try {
@@ -173,6 +156,22 @@
                 
                 signalEl.textContent = signal.action;
                 
+                // Candle prediction display
+                let candleInfo = '';
+                if (signal.candle_prediction) {
+                    const cp = signal.candle_prediction;
+                    const emoji = cp.direction === 'BULLISH' ? '📈' : cp.direction === 'BEARISH' ? '📉' : '➡️';
+                    const color = cp.direction === 'BULLISH' ? '#38ef7d' : cp.direction === 'BEARISH' ? '#f45c43' : '#ffd700';
+                    candleInfo = `
+                        <div style="background: rgba(255,255,255,0.2); padding: 10px; border-radius: 10px; margin-top: 10px;">
+                            <p><strong>🕯️ Next 15-Min Candle Prediction:</strong></p>
+                            <p style="font-size: 24px; margin: 5px 0;">${emoji} <span style="color: ${color}">${cp.direction}</span></p>
+                            <p><strong>Confidence:</strong> ${cp.confidence}%</p>
+                            <p style="font-size: 12px; opacity: 0.8;">${cp.reason || ''}</p>
+                        </div>
+                    `;
+                }
+                
                 if (signal.action === 'BUY') {
                     signalCard.className = 'metric-card signal-buy pulse';
                     document.getElementById('signalDetails').innerHTML = `
@@ -181,12 +180,26 @@
                         <p><strong>Target:</strong> ${signal.target}</p>
                         <p><strong>SL:</strong> ${signal.sl}</p>
                         <p><strong>Confidence:</strong> ${signal.confidence}%</p>
+                        ${signal.reason ? '<p style="font-size: 14px; opacity: 0.9;">📝 ' + signal.reason + '</p>' : ''}
+                        ${candleInfo}
                     `;
                 } else if (signal.action === 'SELL') {
                     signalCard.className = 'metric-card signal-sell pulse';
+                    document.getElementById('signalDetails').innerHTML = `
+                        <p><strong>Type:</strong> ${signal.type}</p>
+                        <p><strong>Entry:</strong> ${signal.entry}</p>
+                        <p><strong>Target:</strong> ${signal.target}</p>
+                        <p><strong>SL:</strong> ${signal.sl}</p>
+                        <p><strong>Confidence:</strong> ${signal.confidence}%</p>
+                        ${signal.reason ? '<p style="font-size: 14px; opacity: 0.9;">📝 ' + signal.reason + '</p>' : ''}
+                        ${candleInfo}
+                    `;
                 } else {
                     signalCard.className = 'metric-card signal-wait';
-                    document.getElementById('signalDetails').innerHTML = '<p>No trade setup yet. Waiting for opportunity...</p>';
+                    document.getElementById('signalDetails').innerHTML = `
+                        <p>${signal.reason || 'No trade setup yet. Waiting for opportunity...'}</p>
+                        ${candleInfo}
+                    `;
                 }
                 
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();

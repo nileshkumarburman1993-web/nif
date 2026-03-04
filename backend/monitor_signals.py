@@ -92,7 +92,7 @@ def main():
     
     strategy = TradingStrategy()
     
-    symbol = "BANKNIFTY"  # Change to NIFTY or FINNIFTY if needed
+    symbol = "NIFTY"  # Change to BANKNIFTY or FINNIFTY if needed
     refresh_interval = 30  # seconds
     
     print(f"✅ Monitoring {symbol} (refresh every {refresh_interval}s)")
